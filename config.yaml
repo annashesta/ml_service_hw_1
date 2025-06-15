@@ -1,17 +1,35 @@
 # Пути к директориям
-input_dir: /app/input
-output_dir: /app/output
-model_path: /app/model/catboost_model.cbm
-train_data_path: /app/train_data/train.csv
-
-# Параметры модели
-random_state: 42
-n_cats: 50
+paths:
+  input_dir: /app/input
+  output_dir: /app/output
+  model_path: /app/model/catboost_model.cbm
+  train_data_path: /app/train_data/train.csv
+  threshold_path: /app/model/threshold.json
 
 # Логирование
-log_level: INFO
-log_file: /app/logs/service.log
+logging:
+  log_level: INFO
+  log_file: /app/logs/service.log
+  max_size_mb: 10
+  backup_count: 3
+
+# Настройки выходных файлов
+output:
+  predictions_file: "sample_submission"
+  feature_importance_file: "feature_importance.json"
+  density_plot_file: "density_plot.png"
+  plot_format: "png"  # или "jpg"
 
 # Настройки графиков
-plot_width: 10
-plot_height: 6
+plots:
+  density_plot:
+    width: 10
+    height: 6
+    color: "blue"
+  feature_importance:
+    top_n: 5
+
+# Безопасность
+security:
+  allowed_extensions: ["csv"]
+  max_file_size_mb: 10

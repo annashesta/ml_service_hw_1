@@ -10,7 +10,6 @@ from geopy.distance import great_circle
 logger = logging.getLogger(__name__)
 RANDOM_STATE = 42
 
-
 def add_time_features(df):
     """
     Добавляет временные признаки из столбца 'transaction_time'.
@@ -34,7 +33,6 @@ def add_time_features(df):
     df.drop(columns='transaction_time', inplace=True)
     return df
 
-
 def cat_encode(train, input_df, col):
     """
     Кодирует категориальные переменные, заменяя их на числовые значения.
@@ -55,7 +53,6 @@ def cat_encode(train, input_df, col):
     # Объединение с входным датасетом
     input_df = input_df.merge(mapping, how='left', on=col).drop(columns=col)
     return input_df
-
 
 def add_distance_features(df):
     """
@@ -78,8 +75,7 @@ def add_distance_features(df):
     )
     return df.drop(columns=['lat', 'lon', 'merchant_lat', 'merchant_lon'])
 
-
-def load_train_data():
+def load_train_data(train_data_path):
     """
     Загружает и предобрабатывает обучающий датасет.
     Выполняет следующие шаги:
@@ -87,6 +83,9 @@ def load_train_data():
     - Добавляет временные признаки.
     - Кодирует категориальные переменные.
     - Рассчитывает расстояния.
+
+    Args:
+        train_data_path (str): Путь к обучающему датасету.
 
     Returns:
         pd.DataFrame: Предобработанный обучающий датасет.
@@ -99,7 +98,7 @@ def load_train_data():
     n_cats = 50
 
     # Загрузка обучающего датасета
-    train = pd.read_csv('./train_data/train.csv').drop(columns=['name_1', 'name_2', 'street', 'post_code'])
+    train = pd.read_csv(train_data_path).drop(columns=['name_1', 'name_2', 'street', 'post_code'])
     logger.info(f'Исходные данные загружены. Размер: {train.shape}')
 
     # Добавление временных признаков
@@ -131,7 +130,6 @@ def load_train_data():
     logger.info(f'Обработка обучающих данных завершена. Размер: {train.shape}')
     return train
 
-
 def run_preproc(train, input_df):
     """
     Основная функция предобработки данных.
@@ -155,6 +153,12 @@ def run_preproc(train, input_df):
     categorical_cols = ['gender', 'merch', 'cat_id', 'one_city', 'us_state', 'jobs']
     continuous_cols = ['amount', 'population_city']
     
+    # Проверка наличия необходимых столбцов
+    required_cols = ['transaction_time', 'lat', 'lon', 'merchant_lat', 'merchant_lon'] + categorical_cols + continuous_cols
+    missing_cols = [col for col in required_cols if col not in input_df.columns]
+    if missing_cols:
+        raise ValueError(f"Отсутствуют необходимые столбцы в входных данных: {missing_cols}")
+
     # Кодирование категориальных переменных
     for col in categorical_cols:
         input_df = cat_encode(train, input_df, col)

@@ -1,0 +1,37 @@
+# Исключаем временные файлы Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Исключаем Git и другие системные файлы
+.git/
+.gitignore
+.github/
+
+# Исключаем IDE-специфичные файлы
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Исключаем логи и временные файлы
+logs/
+*.log
+*.tmp
+temp/
+
+# Исключаем тестовые данные (если они есть)
+# tests/
+# test_data/
+
+# Исключаем скрытые файлы
+.*
+!.dockerignore
+!.gitignore
+
+# Исключаем большие или ненужные файлы
+node_modules/
+vendor/
+dist/
+build/
