@@ -1,0 +1,17 @@
+# Пути к директориям
+input_dir: /app/input
+output_dir: /app/output
+model_path: /app/model/catboost_model.cbm
+train_data_path: /app/train_data/train.csv
+
+# Параметры модели
+random_state: 42
+n_cats: 50
+
+# Логирование
+log_level: INFO
+log_file: /app/logs/service.log
+
+# Настройки графиков
+plot_width: 10
+plot_height: 6

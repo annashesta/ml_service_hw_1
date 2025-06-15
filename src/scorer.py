@@ -24,32 +24,39 @@ def load_model(model_path):
         raise
 
 
-def find_optimal_threshold(model, X_val, y_val):
+from sklearn.model_selection import cross_val_predict
+
+
+from sklearn.model_selection import cross_val_predict
+
+def find_optimal_threshold_with_cv(model, X, y):
     """
-    Находит оптимальный порог для бинарной классификации на основе F1-score.
+    Находит оптимальный порог для бинарной классификации на основе F1-score с использованием кросс-валидации.
     :param model: обученная модель CatBoost.
-    :param X_val: DataFrame с валидационными признаками.
-    :param y_val: истинные метки для валидационной выборки.
+    :param X: DataFrame с признаками.
+    :param y: истинные метки.
     :return: оптимальный порог.
     """
-    logger.info('Поиск оптимального порога...')
-    # Получаем вероятности для положительного класса
-    y_proba = model.predict_proba(X_val)[:, 1]
-
+    logger.info('Поиск оптимального порога с использованием кросс-валидации...')
+    
+    # Получаем вероятности для положительного класса с помощью кросс-валидации
+    y_proba = cross_val_predict(model, X, y, method='predict_proba')[:, 1]
+    
     # Ищем оптимальный порог
     thresholds = np.linspace(0, 1, 100)  # Пробуем 100 значений порога
     best_threshold = 0
     best_f1 = 0
-
+    
     for threshold in thresholds:
         y_pred = (y_proba >= threshold).astype(int)  # Преобразуем вероятности в метки
-        f1 = f1_score(y_val, y_pred)  # Вычисляем F1-score
+        f1 = f1_score(y, y_pred)  # Вычисляем F1-score
         if f1 > best_f1:
             best_f1 = f1
             best_threshold = threshold
-
+    
     logger.info(f'Оптимальный порог найден: {best_threshold:.4f} (F1-score: {best_f1:.4f})')
     return best_threshold
+
 
 
 # Глобальная переменная для модели
@@ -59,14 +66,14 @@ MODEL = load_model('./models/my_catboost.cbm')
 OPTIMAL_THRESHOLD = None
 
 
-def initialize_threshold(X_val, y_val):
+def initialize_threshold_with_cv(X, y):
     """
-    Инициализирует оптимальный порог на основе валидационных данных.
-    :param X_val: DataFrame с валидационными признаками.
-    :param y_val: истинные метки для валидационной выборки.
+    Инициализирует оптимальный порог на основе кросс-валидации.
+    :param X: DataFrame с признаками.
+    :param y: истинные метки.
     """
     global OPTIMAL_THRESHOLD
-    OPTIMAL_THRESHOLD = find_optimal_threshold(MODEL, X_val, y_val)
+    OPTIMAL_THRESHOLD = find_optimal_threshold_with_cv(MODEL, X, y)
 
 
 def make_pred(dt, path_to_file, model_th=None):
@@ -97,5 +104,4 @@ def make_pred(dt, path_to_file, model_th=None):
     except Exception as e:
         logger.error('Ошибка при выполнении предсказаний: %s', str(e))
         raise
-    
     
