@@ -30,6 +30,8 @@ ml_service/
 ├── requirements.txt           # Зависимости Python
 ├── Dockerfile                 # Файл для сборки Docker-образа
 ├── .dockerignore              # Файл для исключения ненужных файлов
+├── train_model.py             # Файл jupyter notebook с кодом обучения модели
+│                              # для возможных изменений
 └── README.md                  # Инструкция по использованию сервиса
 ```
 

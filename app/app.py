@@ -8,7 +8,6 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import pandas as pd
 import yaml
-
 # Локальные импорты
 from src.preprocess import load_train_data, run_preproc
 from src.scorer import make_pred, initialize_threshold, MODEL
@@ -26,7 +25,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 def load_config(config_path):
     """Загрузка конфигурационного файла."""
     try:
@@ -36,10 +34,8 @@ def load_config(config_path):
         logger.error(f"Ошибка загрузки конфига: {e}")
         raise
 
-
 class ProcessingService:
     """Сервис для обработки файлов и выполнения предсказаний."""
-
     def __init__(self, config):
         logger.info('Инициализация ProcessingService...')
         self.config = config
@@ -49,6 +45,8 @@ class ProcessingService:
         self.train = load_train_data(self.config['paths']['train_data_path'])
         initialize_threshold(self.config)
         logger.info('Сервис инициализирован.')
+        logger.info('Для продолжения')
+        logger.info('разместите файл формата `test.csv` в директории `./input`.')
 
     def _validate_config(self):
         """Проверка корректности конфигурации."""
@@ -73,27 +71,15 @@ class ProcessingService:
             processed_df = run_preproc(input_df)
             submission = make_pred(processed_df, self.config)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_filename = f"predictions_{timestamp}.csv"
+            output_filename = f"sample_submission{timestamp}.csv"
             submission.to_csv(
                 os.path.join(self.output_dir, output_filename),
                 index=False
             )
             # Дополнительные функции для оценки на 5
-            self._save_feature_importance()
             self._save_prediction_plot(output_filename)
         except Exception as e:
             logger.error(f'Ошибка обработки файла: {e}', exc_info=True)
-
-    def _save_feature_importance(self):
-        """Сохранение важности признаков."""
-        try:
-            save_feature_importance(
-                MODEL,
-                os.path.join(self.output_dir, 'feature_importance.json'),
-                top_n=5
-            )
-        except Exception as e:
-            logger.error(f'Ошибка сохранения важности признаков: {e}')
 
     def _save_prediction_plot(self, predictions_file):
         """Сохранение графика плотности."""
@@ -105,20 +91,24 @@ class ProcessingService:
                 os.path.join(self.output_dir, 'predictions_distribution.png'),
                 plot_config  # Передаем только density_plot
             )
+            # Добавляем сообщение о сохранении файлов
+            logger.info(
+                "В директории /output находятся файлы:\n"
+                "- sample_submission.csv с предсказаниями\n"
+                "- feature_importance.json с топ-5 feature importances\n"
+                "- predictions_distribution.png с графиком плотности распределения скоров"
+            )
         except Exception as e:
             logger.error(f'Ошибка сохранения графика: {e}')
 
-
 class FileHandler(FileSystemEventHandler):
     """Обработчик событий файловой системы."""
-
     def __init__(self, service):
         self.service = service
 
     def on_created(self, event):
         if not event.is_directory and event.src_path.endswith(".csv"):
             self.service.process_single_file(event.src_path)
-
 
 def main():
     """Основная функция запуска сервиса."""
@@ -141,7 +131,6 @@ def main():
     finally:
         observer.stop()
         observer.join()
-
 
 if __name__ == "__main__":
     main()
