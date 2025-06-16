@@ -26,6 +26,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 def load_config(config_path):
     """Загрузка конфигурационного файла."""
     try:
@@ -35,8 +36,10 @@ def load_config(config_path):
         logger.error(f"Ошибка загрузки конфига: {e}")
         raise
 
+
 class ProcessingService:
     """Сервис для обработки файлов и выполнения предсказаний."""
+
     def __init__(self, config):
         logger.info('Инициализация ProcessingService...')
         self.config = config
@@ -67,7 +70,7 @@ class ProcessingService:
             # Удаление ненужных колонок
             cols_to_drop = ['name_1', 'name_2', 'street', 'post_code']
             input_df = input_df.drop(columns=cols_to_drop, errors='ignore')
-            processed_df = run_preproc(self.train, input_df)
+            processed_df = run_preproc(input_df)
             submission = make_pred(processed_df, self.config)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_filename = f"predictions_{timestamp}.csv"
@@ -95,22 +98,27 @@ class ProcessingService:
     def _save_prediction_plot(self, predictions_file):
         """Сохранение графика плотности."""
         try:
+            # Передаем только часть конфигурации, связанную с графиками
+            plot_config = self.config.get('plots', {}).get('density_plot', {})
             plot_predictions_distribution(
                 os.path.join(self.output_dir, predictions_file),
                 os.path.join(self.output_dir, 'predictions_distribution.png'),
-                self.config
+                plot_config  # Передаем только density_plot
             )
         except Exception as e:
             logger.error(f'Ошибка сохранения графика: {e}')
 
+
 class FileHandler(FileSystemEventHandler):
     """Обработчик событий файловой системы."""
+
     def __init__(self, service):
         self.service = service
 
     def on_created(self, event):
         if not event.is_directory and event.src_path.endswith(".csv"):
             self.service.process_single_file(event.src_path)
+
 
 def main():
     """Основная функция запуска сервиса."""
@@ -133,6 +141,7 @@ def main():
     finally:
         observer.stop()
         observer.join()
+
 
 if __name__ == "__main__":
     main()

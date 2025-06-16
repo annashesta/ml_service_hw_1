@@ -19,8 +19,9 @@ COPY model/catboost_model.cbm /app/model/
 COPY model/threshold.json /app/model/
 COPY train_data/train.csv /app/train_data/
 COPY model/categorical_features.json /app/model/
+COPY config.yaml /app/config.yaml
 COPY src/ /app/src/
-COPY app/app.py /app/app.py 
+COPY app/app.py /app/app.py
 
 # Настройка прав доступа
 RUN chmod -R 755 /app/logs

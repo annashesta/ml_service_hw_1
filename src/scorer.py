@@ -95,6 +95,14 @@ def initialize_threshold(config: Dict) -> None:
         CATEGORICAL_FEATURES
     )
 
+    # Проверка загрузки модели
+    if MODEL is None:
+        raise ValueError("Модель не загружена!")
+    
+    logger.info(f"Тип загруженной модели: {type(MODEL)}")
+    if not hasattr(MODEL, "get_feature_importance"):
+        raise AttributeError("Модель не поддерживает метод get_feature_importance")
+
     # Загрузка порога
     OPTIMAL_THRESHOLD = load_threshold(config["paths"]["threshold_path"])
 
@@ -111,7 +119,7 @@ def make_pred(data: pd.DataFrame, config: Dict) -> pd.DataFrame:
     """
     logger.info("Выполнение предсказаний...")
 
-    # Проверка признаков
+    # Проверка наличия необходимых признаков
     required_features = MODEL.feature_names_
     missing_features = [f for f in required_features if f not in data.columns]
     if missing_features:

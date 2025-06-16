@@ -60,7 +60,7 @@ def plot_predictions_distribution(
         dpi = plot_config.get('dpi', 300)
         
         # Инициализация графика
-        plt.style.use('seaborn')
+        plt.style.use('ggplot')
         fig, ax = plt.subplots(figsize=(width, height))
         
         # Построение графика плотности
