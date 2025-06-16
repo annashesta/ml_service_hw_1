@@ -1,9 +1,9 @@
-"""Модуль для выполнения предсказаний с помощью CatBoost модели."""
 import json
 import logging
 from typing import Dict, List
 import pandas as pd
 from catboost import CatBoostClassifier
+from src.feature_importance import save_feature_importance  # Импортируем функцию сохранения важности признаков
 
 # Настройка логгера
 logger = logging.getLogger(__name__)
@@ -83,26 +83,31 @@ def initialize_threshold(config: Dict) -> None:
         config: Конфигурационный словарь.
     """
     global MODEL, OPTIMAL_THRESHOLD, CATEGORICAL_FEATURES
-
     # Загрузка категориальных признаков
     CATEGORICAL_FEATURES = load_categorical_features(
         config["paths"]["categorical_features_path"]
     )
-
     # Загрузка модели
     MODEL = load_model(
         config["paths"]["model_path"],
         CATEGORICAL_FEATURES
     )
-
     # Проверка загрузки модели
     if MODEL is None:
         raise ValueError("Модель не загружена!")
-    
     logger.info(f"Тип загруженной модели: {type(MODEL)}")
     if not hasattr(MODEL, "get_feature_importance"):
         raise AttributeError("Модель не поддерживает метод get_feature_importance")
-
+    # Сохранение важности признаков
+    try:
+        save_feature_importance(
+            MODEL,
+            config["paths"]["output_dir"] + "/feature_importance.json",
+            top_n=5
+        )
+        logger.info("Важность признаков успешно сохранена.")
+    except Exception as e:
+        logger.error(f"Ошибка сохранения важности признаков: {e}")
     # Загрузка порога
     OPTIMAL_THRESHOLD = load_threshold(config["paths"]["threshold_path"])
 
@@ -118,7 +123,6 @@ def make_pred(data: pd.DataFrame, config: Dict) -> pd.DataFrame:
         ValueError: Если отсутствуют необходимые признаки.
     """
     logger.info("Выполнение предсказаний...")
-
     # Проверка наличия необходимых признаков
     required_features = MODEL.feature_names_
     missing_features = [f for f in required_features if f not in data.columns]
@@ -126,12 +130,10 @@ def make_pred(data: pd.DataFrame, config: Dict) -> pd.DataFrame:
         error_msg = f"Отсутствуют признаки: {missing_features}"
         logger.error(error_msg)
         raise ValueError(error_msg)
-
     # Предсказания
     proba = MODEL.predict_proba(data)[:, 1]
     predictions = (proba >= OPTIMAL_THRESHOLD).astype(int)
     logger.info("Предсказания выполнены")
-
     return pd.DataFrame({
         "index": data.index,
         "prediction": predictions
