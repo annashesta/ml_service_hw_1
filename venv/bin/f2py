@@ -1,5 +1,5 @@
 #!/bin/sh
-'''exec' "/Users/annashestakova/Documents/ШАД МТС/MLOPS/ml_service_hw_1/venv/bin/python" "$0" "$@"
+'''exec' "/Users/annashestakova/Documents/ШАД МТС/MLOPS/ml_service_hw_1/ml_service_hw_1/venv/bin/python3" "$0" "$@"
 ' '''
 # -*- coding: utf-8 -*-
 import re

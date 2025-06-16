@@ -1,5 +1,5 @@
 # Базовый образ
-FROM python:3.9-slim
+FROM python:3.12-slim
 
 # Создание и настройка рабочей директории
 WORKDIR /app
@@ -16,9 +16,11 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 
 # Копирование остальных файлов
 COPY model/catboost_model.cbm /app/model/
+COPY model/threshold.json /app/model/
 COPY train_data/train.csv /app/train_data/
+COPY model/categorical_features.json /app/model/
 COPY src/ /app/src/
-COPY app/app.py /app/
+COPY app/app.py /app/app.py 
 
 # Настройка прав доступа
 RUN chmod -R 755 /app/logs
@@ -26,12 +28,5 @@ RUN chmod -R 755 /app/logs
 # Переключаемся на непривилегированного пользователя
 USER appuser
 
-# Команда для запуска сервиса
-CMD ["python", "app/app.py"]
-
-# Опционально: проверка здоровья контейнера
-# Убедитесь, что сервис действительно имеет HTTP-сервер и endpoint /health
-HEALTHCHECK --interval=30s --timeout=3s \
-  CMD curl -f http://localhost:8000/health || exit 1
-
-  
+# Команда для запуска сервиса с использованием JSON-синтаксиса
+CMD ["python", "app.py"]

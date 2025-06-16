@@ -1,36 +1,57 @@
+"""Модуль для работы с важностью признаков модели CatBoost."""
+
 import json
-from catboost import CatBoostClassifier
 import logging
+from typing import Dict, List
 
 # Настройка логгера
 logger = logging.getLogger(__name__)
 
-def save_feature_importance(model, output_path, top_n=5):
-    """
-    Сохраняет важность признаков в JSON файл.
 
-    :param model: обученная модель CatBoost.
-    :param output_path: путь к выходному JSON файлу.
-    :param top_n: количество топ-признаков для сохранения.
+def save_feature_importance(
+    model: "CatBoostClassifier",
+    output_path: str,
+    top_n: int = 5
+) -> None:
     """
-    logger.info(f'Сохранение важности признаков в файл {output_path}...')
+    Сохраняет важность признаков модели в JSON файл.
+    
+    Args:
+        model: Обученная модель CatBoost.
+        output_path: Путь для сохранения JSON файла.
+        top_n: Количество топ-признаков для сохранения.
+    
+    Raises:
+        RuntimeError: Если произошла ошибка при сохранении.
+    """
+    logger.info("Сохранение важности признаков в %s...", output_path)
+    
     try:
-        # Получение важности признаков
+        # Получение важности признаков и их имен
         feature_importances = model.get_feature_importance()
         feature_names = model.feature_names_
-        
-        # Сортировка признаков по важности
-        sorted_indices = np.argsort(feature_importances)[::-1]
+
+        # Проверка совпадения размеров
+        if len(feature_importances) != len(feature_names):
+            raise ValueError("Размеры важности признаков и их имен не совпадают")
+
+        # Сортировка и выбор топ-N признаков
+        sorted_indices = sorted(
+            range(len(feature_importances)),
+            key=lambda i: feature_importances[i],
+            reverse=True
+        )
         top_features = {
             feature_names[i]: float(feature_importances[i])
             for i in sorted_indices[:top_n]
         }
-        
+
         # Сохранение в JSON
-        with open(output_path, 'w') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(top_features, f, indent=4)
-        
-        logger.info('Важность признаков успешно сохранена.')
+
+        logger.info("Сохранены топ-%d важных признаков в %s", top_n, output_path)
+    
     except Exception as e:
-        logger.error(f"Ошибка сохранения важности признаков: {str(e)}")
-        raise
+        logger.error("Ошибка сохранения важности признаков: %s", str(e))
+        raise RuntimeError(f"Ошибка сохранения важности признаков: {str(e)}") from e
