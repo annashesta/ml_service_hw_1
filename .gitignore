@@ -52,4 +52,5 @@ docker-compose.override.yml
 
 output/feature_importance.json
 output/predictions_distribution.png
-*.csv
+*.csvvenv/
+.venv/
