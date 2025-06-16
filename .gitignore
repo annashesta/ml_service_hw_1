@@ -1,3 +1,49 @@
-.venv
-*.DS_Store
+# Виртуальные окружения
+/venv/
+*.venv/
+env/
+venv/
+ENV/
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# Логи и артефакты
+*.log
+logs/
+output/
+model/
+__pycache__/
+*.py[cod]
+
+# Данные (если они не нужны в репозитории)
 *.csv
+*.xlsx
+*.json
+train_data/
+input/
+.cache/
+
+# IDE и локальные настройки
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Файлы сборки и временные файлы
+build/
+dist/
+*.egg-info/
+.tox/
+.coverage
+coverage.xml
+htmlcov/
+
+# Docker
+.dockerignore
+docker-compose.override.ymlmodel/catboost_model.cbm
+
+
+model/catboost_model.cbm
+/catboost_info

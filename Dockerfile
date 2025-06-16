@@ -1,21 +1,33 @@
+# Базовый образ
 FROM python:3.12-slim
 
+# Создание и настройка рабочей директории
 WORKDIR /app
 
-# Создание директории для логов
-RUN mkdir -p /app/logs && \
-    touch /app/logs/service.log && \
-    chmod -R 777 /app/logs  # Права на запись для всех пользователей
+# Создание директорий
+RUN mkdir -p /app/input /app/output /app/model /app/src /app/logs /app/train_data && \
+    useradd -m appuser && \
+    chown -R appuser:appuser /app
 
-# Установка зависимостей
+# Установка зависимостей (копируем отдельно для лучшего кэширования)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    rm -rf /root/.cache /var/lib/apt/lists/*
 
-# Копирование исходного кода
-COPY . .
+# Копирование остальных файлов
+COPY model/catboost_model.cbm /app/model/
+COPY model/threshold.json /app/model/
+COPY train_data/train.csv /app/train_data/
+COPY model/categorical_features.json /app/model/
+COPY config.yaml /app/config.yaml
+COPY src/ /app/src/
+COPY app/app.py /app/app.py
 
-# Точки монтирования
-VOLUME /app/input
-VOLUME /app/output
+# Настройка прав доступа
+RUN chmod -R 755 /app/logs
 
-CMD ["python", "./app/app.py"]
+# Переключаемся на непривилегированного пользователя
+USER appuser
+
+# Команда для запуска сервиса с использованием JSON-синтаксиса
+CMD ["python", "app.py"]

@@ -1,101 +1,138 @@
-import pandas as pd
-import numpy as np
-from sklearn.metrics import f1_score
+"""Модуль для выполнения предсказаний с помощью CatBoost модели."""
+import json
 import logging
+from typing import Dict, List
+import pandas as pd
 from catboost import CatBoostClassifier
 
 # Настройка логгера
 logger = logging.getLogger(__name__)
 
-def load_model(model_path):
+# Глобальные переменные
+MODEL: CatBoostClassifier = None
+OPTIMAL_THRESHOLD: float = None
+CATEGORICAL_FEATURES: List[str] = []
+
+def load_model(model_path: str, categorical_features: List[str]) -> CatBoostClassifier:
     """
     Загружает предобученную модель CatBoost.
-    :param model_path: путь к файлу модели.
-    :return: загруженная модель.
+    Args:
+        model_path: Путь к файлу модели.
+        categorical_features: Список категориальных признаков.
+    Returns:
+        Загруженная модель CatBoost.
+    Raises:
+        RuntimeError: Если не удалось загрузить модель.
     """
-    logger.info('Импортируется предобученная модель...')
+    logger.info("Загрузка модели из %s...", model_path)
     try:
-        model = CatBoostClassifier()
+        model = CatBoostClassifier(cat_features=categorical_features)
         model.load_model(model_path)
-        logger.info('Предобученная модель успешно импортирована.')
+        logger.info("Модель успешно загружена")
         return model
     except Exception as e:
-        logger.error('Ошибка при загрузке модели: %s', str(e))
-        raise
+        logger.error("Ошибка загрузки модели: %s", str(e))
+        raise RuntimeError(f"Ошибка загрузки модели: {str(e)}") from e
 
-
-def find_optimal_threshold(model, X_val, y_val):
+def load_threshold(threshold_path: str) -> float:
     """
-    Находит оптимальный порог для бинарной классификации на основе F1-score.
-    :param model: обученная модель CatBoost.
-    :param X_val: DataFrame с валидационными признаками.
-    :param y_val: истинные метки для валидационной выборки.
-    :return: оптимальный порог.
+    Загружает порог классификации из файла.
+    Args:
+        threshold_path: Путь к файлу с порогом.
+    Returns:
+        Порог классификации (по умолчанию 0.5).
+    Raises:
+        RuntimeError: Если не удалось загрузить порог.
     """
-    logger.info('Поиск оптимального порога...')
-    # Получаем вероятности для положительного класса
-    y_proba = model.predict_proba(X_val)[:, 1]
-
-    # Ищем оптимальный порог
-    thresholds = np.linspace(0, 1, 100)  # Пробуем 100 значений порога
-    best_threshold = 0
-    best_f1 = 0
-
-    for threshold in thresholds:
-        y_pred = (y_proba >= threshold).astype(int)  # Преобразуем вероятности в метки
-        f1 = f1_score(y_val, y_pred)  # Вычисляем F1-score
-        if f1 > best_f1:
-            best_f1 = f1
-            best_threshold = threshold
-
-    logger.info(f'Оптимальный порог найден: {best_threshold:.4f} (F1-score: {best_f1:.4f})')
-    return best_threshold
-
-
-# Глобальная переменная для модели
-MODEL = load_model('./models/my_catboost.cbm')
-
-# Глобальная переменная для оптимального порога
-OPTIMAL_THRESHOLD = None
-
-
-def initialize_threshold(X_val, y_val):
-    """
-    Инициализирует оптимальный порог на основе валидационных данных.
-    :param X_val: DataFrame с валидационными признаками.
-    :param y_val: истинные метки для валидационной выборки.
-    """
-    global OPTIMAL_THRESHOLD
-    OPTIMAL_THRESHOLD = find_optimal_threshold(MODEL, X_val, y_val)
-
-
-def make_pred(dt, path_to_file, model_th=None):
-    """
-    Выполняет предсказания для входных данных.
-    :param dt: DataFrame с обработанными данными.
-    :param path_to_file: путь к исходному файлу для создания submission.
-    :param model_th: порог для бинарной классификации (по умолчанию используется OPTIMAL_THRESHOLD).
-    :return: DataFrame с предсказаниями.
-    """
+    logger.info("Загрузка порога из %s...", threshold_path)
     try:
-        # Если порог не передан, используем оптимальный
-        threshold = model_th if model_th is not None else OPTIMAL_THRESHOLD
-
-        # Проверка, что все необходимые признаки присутствуют
-        required_features = MODEL.feature_names_
-        if not all(feature in dt.columns for feature in required_features):
-            raise ValueError("Входные данные не содержат всех необходимых признаков.")
-
-        # Создание DataFrame с индексами и предсказаниями
-        submission = pd.DataFrame({
-            'index': pd.read_csv(path_to_file).index,  # Индексы из исходного файла
-            'prediction': (MODEL.predict_proba(dt)[:, 1] > threshold) * 1  # Бинарные метки на основе порога
-        })
-        logger.info('Предсказания завершены для файла: %s', path_to_file)
-        return submission
-
+        with open(threshold_path, "r", encoding="utf-8") as f:
+            threshold_data = json.load(f)
+        threshold = threshold_data.get("threshold", 0.5)
+        logger.info("Порог классификации: %.2f", threshold)
+        return threshold
     except Exception as e:
-        logger.error('Ошибка при выполнении предсказаний: %s', str(e))
-        raise
+        logger.error("Ошибка загрузки порога: %s", str(e))
+        raise RuntimeError(f"Ошибка загрузки порога: {str(e)}") from e
+
+def load_categorical_features(features_path: str) -> List[str]:
+    """
+    Загружает список категориальных признаков из JSON-файла.
+    Args:
+        features_path: Путь к файлу с категориальными признаками.
+    Returns:
+        Список категориальных признаков.
+    Raises:
+        RuntimeError: Если не удалось загрузить список категориальных признаков.
+    """
+    logger.info("Загрузка списка категориальных признаков из %s...", features_path)
+    try:
+        with open(features_path, "r", encoding="utf-8") as f:
+            features_data = json.load(f)
+        categorical_features = features_data.get("categorical_features", [])
+        logger.info("Категориальные признаки: %s", categorical_features)
+        return categorical_features
+    except Exception as e:
+        logger.error("Ошибка загрузки категориальных признаков: %s", str(e))
+        raise RuntimeError(f"Ошибка загрузки категориальных признаков: {str(e)}") from e
+
+def initialize_threshold(config: Dict) -> None:
+    """
+    Инициализирует модель, порог классификации и список категориальных признаков.
+    Args:
+        config: Конфигурационный словарь.
+    """
+    global MODEL, OPTIMAL_THRESHOLD, CATEGORICAL_FEATURES
+
+    # Загрузка категориальных признаков
+    CATEGORICAL_FEATURES = load_categorical_features(
+        config["paths"]["categorical_features_path"]
+    )
+
+    # Загрузка модели
+    MODEL = load_model(
+        config["paths"]["model_path"],
+        CATEGORICAL_FEATURES
+    )
+
+    # Проверка загрузки модели
+    if MODEL is None:
+        raise ValueError("Модель не загружена!")
     
-    
+    logger.info(f"Тип загруженной модели: {type(MODEL)}")
+    if not hasattr(MODEL, "get_feature_importance"):
+        raise AttributeError("Модель не поддерживает метод get_feature_importance")
+
+    # Загрузка порога
+    OPTIMAL_THRESHOLD = load_threshold(config["paths"]["threshold_path"])
+
+def make_pred(data: pd.DataFrame, config: Dict) -> pd.DataFrame:
+    """
+    Выполняет предсказания на основе загруженной модели.
+    Args:
+        data: DataFrame с предобработанными данными.
+        config: Конфигурационный словарь.
+    Returns:
+        DataFrame с предсказаниями.
+    Raises:
+        ValueError: Если отсутствуют необходимые признаки.
+    """
+    logger.info("Выполнение предсказаний...")
+
+    # Проверка наличия необходимых признаков
+    required_features = MODEL.feature_names_
+    missing_features = [f for f in required_features if f not in data.columns]
+    if missing_features:
+        error_msg = f"Отсутствуют признаки: {missing_features}"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+
+    # Предсказания
+    proba = MODEL.predict_proba(data)[:, 1]
+    predictions = (proba >= OPTIMAL_THRESHOLD).astype(int)
+    logger.info("Предсказания выполнены")
+
+    return pd.DataFrame({
+        "index": data.index,
+        "prediction": predictions
+    })

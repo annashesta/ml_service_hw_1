@@ -1,101 +1,19 @@
+"""Основной скрипт приложения."""
+import logging
 import os
 import sys
-import pandas as pd
 import time
-import logging
+from datetime import datetime
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from datetime import datetime
-
-sys.path.append(os.path.abspath('./src'))
-from preprocessing import load_train_data, run_preproc
-from scorer import make_pred
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('/app/logs/service.log'),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
-
-
-class ProcessingService:
-    def __init__(self):
-        logger.info('Initializing ProcessingService...')
-        self.input_dir = '/app/input'
-        self.output_dir = '/app/output'
-        self.train = load_train_data()
-        logger.info('Service initialized')
-
-    def process_single_file(self, file_path):
-        try:
-            logger.info('Processing file: %s', file_path)
-            input_df = pd.read_csv(file_path).drop(columns=['name_1', 'name_2', 'street', 'post_code'])
-
-            logger.info('Starting preprocessing')
-            processed_df = run_preproc(self.train, input_df)
-            
-            logger.info('Making prediction')
-            submission = make_pred(processed_df, file_path)
-            
-            logger.info('Prepraring submission file')
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_filename = f"predictions_{timestamp}_{os.path.basename(file_path)}"
-            submission.to_csv(os.path.join(self.output_dir, output_filename), index=False)
-            logger.info('Predictions saved to: %s', output_filename)
-
-        except Exception as e:
-            logger.error('Error processing file %s: %s', file_path, e, exc_info=True)
-            return
-
-
-class FileHandler(FileSystemEventHandler):
-    def __init__(self, service):
-        self.service = service
-
-    def on_created(self, event):
-        if not event.is_directory and event.src_path.endswith(".csv"):
-            logger.debug('New file detected: %s', event.src_path)
-            self.service.process_single_file(event.src_path)
-
-if __name__ == "__main__":
-    logger.info('Starting ML scoring service...')
-    service = ProcessingService()
-    observer = Observer()
-    observer.schedule(FileHandler(service), path=service.input_dir, recursive=False)
-    observer.start()
-    logger.info('File observer started')
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        logger.info('Service stopped by user')
-        observer.stop()
-    observer.join()
-    
-    
-    ----
-    ----
-    ---
-    ---
-    
-    
-    import os
-import sys
 import pandas as pd
-import time
-import logging
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-from datetime import datetime
+import yaml
 
-# Добавление пути к модулям
-sys.path.append(os.path.abspath('./src'))
-from preprocessing import load_train_data, run_preproc
-from scorer import make_pred
+# Локальные импорты
+from src.preprocess import load_train_data, run_preproc
+from src.scorer import make_pred, initialize_threshold, MODEL
+from src.feature_importance import save_feature_importance
+from src.plot_predictions import plot_predictions_distribution
 
 # Настройка логгера
 logging.basicConfig(
@@ -109,85 +27,121 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def load_config(config_path):
+    """Загрузка конфигурационного файла."""
+    try:
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+    except Exception as e:
+        logger.error(f"Ошибка загрузки конфига: {e}")
+        raise
+
+
 class ProcessingService:
-    def __init__(self):
+    """Сервис для обработки файлов и выполнения предсказаний."""
+
+    def __init__(self, config):
         logger.info('Инициализация ProcessingService...')
-        self.input_dir = '/app/input'
-        self.output_dir = '/app/output'
-        self.train = load_train_data()
+        self.config = config
+        self._validate_config()
+        self.input_dir = self.config['paths']['input_dir']
+        self.output_dir = self.config['paths']['output_dir']
+        self.train = load_train_data(self.config['paths']['train_data_path'])
+        initialize_threshold(self.config)
         logger.info('Сервис инициализирован.')
 
+    def _validate_config(self):
+        """Проверка корректности конфигурации."""
+        required_paths = [
+            'input_dir', 'output_dir', 'model_path',
+            'train_data_path', 'threshold_path'
+        ]
+        for path_key in required_paths:
+            if not os.path.exists(self.config['paths'][path_key]):
+                raise FileNotFoundError(
+                    f"Путь не найден: {self.config['paths'][path_key]}"
+                )
+
     def process_single_file(self, file_path):
-        """
-        Обрабатывает один файл: выполняет предобработку, предсказания и сохранение результатов.
-        :param file_path: путь к входному файлу.
-        """
+        """Обработка одного файла."""
         try:
-            logger.info('Обработка файла: %s', file_path)
-
-            # Проверка существования файла
-            if not os.path.exists(file_path):
-                raise FileNotFoundError(f"Файл {file_path} не найден.")
-
-            # Загрузка данных
-            input_df = pd.read_csv(file_path).drop(columns=['name_1', 'name_2', 'street', 'post_code'])
-
-            # Предобработка данных
-            logger.info('Начало предобработки данных.')
-            processed_df = run_preproc(self.train, input_df)
-
-            # Выполнение предсказаний
-            logger.info('Выполнение предсказаний.')
-            submission = make_pred(processed_df, file_path)
-
-            # Сохранение результатов
-            logger.info('Подготовка файла с предсказаниями.')
+            logger.info(f'Обработка файла: {file_path}')
+            input_df = pd.read_csv(file_path)
+            # Удаление ненужных колонок
+            cols_to_drop = ['name_1', 'name_2', 'street', 'post_code']
+            input_df = input_df.drop(columns=cols_to_drop, errors='ignore')
+            processed_df = run_preproc(input_df)
+            submission = make_pred(processed_df, self.config)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_filename = f"predictions_{timestamp}_{os.path.basename(file_path)}"
-            submission.to_csv(os.path.join(self.output_dir, output_filename), index=False)
-            logger.info('Предсказания сохранены в файл: %s', output_filename)
-
+            output_filename = f"predictions_{timestamp}.csv"
+            submission.to_csv(
+                os.path.join(self.output_dir, output_filename),
+                index=False
+            )
+            # Дополнительные функции для оценки на 5
+            self._save_feature_importance()
+            self._save_prediction_plot(output_filename)
         except Exception as e:
-            logger.error('Ошибка при обработке файла %s: %s', file_path, e, exc_info=True)
+            logger.error(f'Ошибка обработки файла: {e}', exc_info=True)
+
+    def _save_feature_importance(self):
+        """Сохранение важности признаков."""
+        try:
+            save_feature_importance(
+                MODEL,
+                os.path.join(self.output_dir, 'feature_importance.json'),
+                top_n=5
+            )
+        except Exception as e:
+            logger.error(f'Ошибка сохранения важности признаков: {e}')
+
+    def _save_prediction_plot(self, predictions_file):
+        """Сохранение графика плотности."""
+        try:
+            # Передаем только часть конфигурации, связанную с графиками
+            plot_config = self.config.get('plots', {}).get('density_plot', {})
+            plot_predictions_distribution(
+                os.path.join(self.output_dir, predictions_file),
+                os.path.join(self.output_dir, 'predictions_distribution.png'),
+                plot_config  # Передаем только density_plot
+            )
+        except Exception as e:
+            logger.error(f'Ошибка сохранения графика: {e}')
 
 
 class FileHandler(FileSystemEventHandler):
+    """Обработчик событий файловой системы."""
+
     def __init__(self, service):
         self.service = service
 
     def on_created(self, event):
-        """
-        Обрабатывает создание нового файла.
-        :param event: событие создания файла.
-        """
         if not event.is_directory and event.src_path.endswith(".csv"):
-            logger.debug('Обнаружен новый файл: %s', event.src_path)
             self.service.process_single_file(event.src_path)
 
 
-if __name__ == "__main__":
-    logger.info('Запуск сервиса ML scoring...')
-    
-    # Загрузка валидационных данных
-    validation_data = pd.read_csv('/path/to/validation_data.csv')
-    X_val = validation_data.drop(columns=['target'])
-    y_val = validation_data['target']
-
-    # Инициализация оптимального порога
-    from scorer import initialize_threshold
-    initialize_threshold(X_val, y_val)
-
-    # Запуск сервиса
-    service = ProcessingService()
-    observer = Observer()
-    observer.schedule(FileHandler(service), path=service.input_dir, recursive=False)
-    observer.start()
-    logger.info('Наблюдатель за файлами запущен.')
-
+def main():
+    """Основная функция запуска сервиса."""
     try:
+        config = load_config('./config.yaml')
+        service = ProcessingService(config)
+        observer = Observer()
+        observer.schedule(
+            FileHandler(service),
+            path=service.input_dir,
+            recursive=False
+        )
+        observer.start()
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        logger.info('Сервис остановлен пользователем.')
+        logger.info('Сервис остановлен')
+    except Exception as e:
+        logger.error(f'Ошибка в главном цикле: {e}', exc_info=True)
+    finally:
         observer.stop()
-    observer.join()
+        observer.join()
+
+
+if __name__ == "__main__":
+    main()

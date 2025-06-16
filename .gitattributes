@@ -1,0 +1,2 @@
+model/*.cbm filter=lfs diff=lfs merge=lfs -text
+model/catboost_model.cbm filter=lfs diff=lfs merge=lfs -text
