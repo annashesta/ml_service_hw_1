@@ -13,7 +13,7 @@ Thumbs.db
 *.log
 logs/
 output/
-model/
+# model/
 __pycache__/
 *.py[cod]
 
@@ -39,6 +39,7 @@ dist/
 .coverage
 coverage.xml
 htmlcov/
+
 
 # Docker
 .dockerignore
