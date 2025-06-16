@@ -1,3 +1,4 @@
+"""Модуль для выполнения предсказаний с помощью CatBoost модели."""
 import json
 import logging
 from typing import Dict, List

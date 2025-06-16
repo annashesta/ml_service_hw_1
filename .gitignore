@@ -12,8 +12,6 @@ Thumbs.db
 # Логи и артефакты
 *.log
 logs/
-output/
-# model/
 __pycache__/
 *.py[cod]
 
@@ -21,9 +19,6 @@ __pycache__/
 *.csv
 *.xlsx
 *.json
-train_data/
-input/
-.cache/
 
 # IDE и локальные настройки
 .vscode/
@@ -40,11 +35,15 @@ dist/
 coverage.xml
 htmlcov/
 
-
 # Docker
 .dockerignore
-docker-compose.override.ymlmodel/catboost_model.cbm
+docker-compose.override.yml
 
+# Исключаем конкретные файлы, если необходимо
+# model/catboost_model.cbm  # Убираем из игнора, так как он будет загружен через LFS
+# /catboost_info
 
-model/catboost_model.cbm
-/catboost_info
+# Папки с датасетами
+input/
+output/
+train_data/
