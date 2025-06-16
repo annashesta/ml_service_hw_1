@@ -16,9 +16,10 @@ __pycache__/
 *.py[cod]
 
 # Данные (если они не нужны в репозитории)
-*.csv
-*.xlsx
-*.json
+input/*.csv
+output/*.csv
+train_data/*.csv
+train_data/*.json
 
 # IDE и локальные настройки
 .vscode/
@@ -41,9 +42,14 @@ docker-compose.override.yml
 
 # Исключаем конкретные файлы, если необходимо
 # model/catboost_model.cbm  # Убираем из игнора, так как он будет загружен через LFS
-# /catboost_info
+/catboost_info
 
 # Папки с датасетами
-input/
-output/
-train_data/
+# input/
+# output/
+# train_data/
+
+
+output/feature_importance.json
+output/predictions_distribution.png
+*.csv
