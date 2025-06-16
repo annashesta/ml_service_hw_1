@@ -43,4 +43,7 @@ htmlcov/
 # Docker
 .dockerignore
 docker-compose.override.ymlmodel/catboost_model.cbm
+
+
 model/catboost_model.cbm
+/catboost_info
