@@ -125,11 +125,11 @@ ml_service/
 
 2. **Монтирование директории логов на хост-систему:**
    ```bash
-   docker run -it --rm \
-       -v $(pwd)/input:/app/input \
-       -v $(pwd)/output:/app/output \
-       -v $(pwd)/logs:/app/logs \
-       fraud_detector
+   docker run -it --rm \                
+    -v "$(pwd)/input:/app/input" \
+    -v "$(pwd)/output:/app/output" \
+    -v "$(pwd)/model:/app/model" \
+    fraud_detector
    ```
 
 ---
