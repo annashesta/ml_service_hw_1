@@ -98,11 +98,15 @@ ml_service/
 4. **Запустите контейнер с монтированием томов:**
    ```bash
    docker run -it --rm \
-       -v $(pwd)/input:/app/input \
-       -v $(pwd)/output:/app/output \
-       -v $(pwd)/model:/app/model \
-       fraud_detector
+    -v "$(pwd)/input:/app/input" \
+    -v "$(pwd)/output:/app/output" \
+    -v "$(pwd)/model:/app/model" \
+    fraud_detector
    ```
+
+   - `-v` монтирует хостовые директории в контейнер
+   -  Пути должны быть абсолютными и без пробелов
+   - Права доступа соответствуют хостовой системе
 
 5. **После запуска сервиса:**
    - Разместите файл формата `test.csv` в директории `./input`.
@@ -125,11 +129,11 @@ ml_service/
 
 2. **Монтирование директории логов на хост-систему:**
    ```bash
-   docker run -it --rm \                
-    -v "$(pwd)/input:/app/input" \
-    -v "$(pwd)/output:/app/output" \
-    -v "$(pwd)/model:/app/model" \
-    fraud_detector
+   docker run -it --rm \
+       -v $(pwd)/input:/app/input \
+       -v $(pwd)/output:/app/output \
+       -v $(pwd)/logs:/app/logs \
+       fraud_detector
    ```
 
 ---
